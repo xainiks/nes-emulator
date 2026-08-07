@@ -38,8 +38,6 @@
 
     // Читаем параметры из URL
     const urlParams = new URLSearchParams(window.location.search);
-    
-    // Если ROM передан в параметре — берем его, иначе по умолчанию Танчики
     let romUrl = urlParams.get('rom') || 'Battle City (J) [T+Rus1.2 PSCD (07.04.2017)].nes';
     const netplayRoom = urlParams.get('room');
 
@@ -50,7 +48,7 @@
     EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
     EJS_startOnLoaded = true;
 
-    // Автоматическое закрытие Mini App при нажатии на выход в эмуляторе
+    // Закрытие Mini App при выходе из эмулятора
     EJS_onExit = function() {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.close();
@@ -62,6 +60,19 @@
         EJS_netplayUrl = 'wss://netplay.emulatorjs.org';
         EJS_room = netplayRoom;
     }
+
+    // Обработка сворачивания/разворачивания приложения на смартфоне
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            if (window.EJS_emulator && window.EJS_emulator.pause) {
+                window.EJS_emulator.pause();
+            }
+        } else {
+            if (window.EJS_emulator && window.EJS_emulator.resume) {
+                window.EJS_emulator.resume();
+            }
+        }
+    });
 </script>
 <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 
