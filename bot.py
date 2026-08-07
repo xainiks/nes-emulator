@@ -1,6 +1,5 @@
 import os
 import asyncio
-import sqlite3
 import random
 import string
 import re
@@ -82,22 +81,6 @@ def upload_to_github(file_content: bytes, filename: str) -> bool:
     except Exception as e:
         print(f"Ошибка загрузки на GitHub: {e}")
         return False
-
-def init_db():
-    conn = sqlite3.connect("roms.db")
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS user_roms (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            file_name TEXT,
-            clean_name TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
@@ -199,17 +182,8 @@ async def handle_custom_rom(message: types.Message):
     success = await loop.run_in_executor(None, upload_to_github, file_bytes.read(), clean_name)
 
     if success:
-        conn = sqlite3.connect("roms.db")
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO user_roms (user_id, file_name, clean_name) VALUES (?, ?, ?)",
-            (message.from_user.id, original_name, clean_name)
-        )
-        conn.commit()
-        conn.close()
-
         await status_msg.edit_text(
-            f"✅ Картридж <b>{original_name}</b> сохранён и выгружен на GitHub!\n Теперь можно играть соло или с другом.",
+            f"✅ Картридж <b>{original_name}</b> сохранён и выгружен на GitHub!\nТеперь можно играть соло или с другом.",
             parse_mode="HTML"
         )
     else:
@@ -220,33 +194,36 @@ async def handle_custom_rom(message: types.Message):
 
 @dp.callback_query(F.data == "my_library")
 async def show_my_library(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
+    await callback.answer("⏳ Загружаю список игр с GitHub...")
     
-    conn = sqlite3.connect("roms.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT clean_name, file_name FROM user_roms WHERE user_id = ?", (user_id,))
-    roms = cursor.fetchall()
-    conn.close()
+    try:
+        g = Github(GITHUB_TOKEN)
+        repo = g.get_user(GITHUB_USER).get_repo(GITHUB_REPO)
+        contents = repo.get_contents("")
+        roms = [c for c in contents if c.name.endswith('.nes')]
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[])
+        kb = InlineKeyboardMarkup(inline_keyboard=[])
 
-    if not roms:
-        text = (
-            "📦 <b>Твоя полка картриджей пуста.</b>\n\n"
-            "Загрузи `.nes` файл прямо в чат сообщением!"
+        if not roms:
+            text = "📦 <b>Твоя полка картриджей пуста.</b>\n\nЗагрузи `.nes` файл прямо в чат!"
+        else:
+            text = "💾 <b>Твоя личная коллекция РОМов на GitHub:</b>\nВыбери игру:"
+            for rom in roms:
+                kb.inline_keyboard.append([
+                    InlineKeyboardButton(
+                        text=f"🕹 {rom.name}", 
+                        callback_data=f"rom_opts_{rom.name}"
+                    )
+                ])
+        
+        kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_main")])
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        
+    except Exception as e:
+        await callback.message.edit_text(
+            f"❌ Ошибка при чтении с GitHub: {e}", 
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="⬅️ Назад", callback_data="back_main")]])
         )
-    else:
-        text = "💾 <b>Твоя личная коллекция РОМов:</b>\nВыбери игру:"
-        for clean_name, file_name in roms:
-            kb.inline_keyboard.append([
-                InlineKeyboardButton(
-                    text=f"🕹 {file_name}", 
-                    callback_data=f"rom_opts_{clean_name}"
-                )
-            ])
-
-    kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_main")])
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 @dp.callback_query(F.data.startswith("rom_opts_"))
 async def rom_options(callback: types.CallbackQuery):
