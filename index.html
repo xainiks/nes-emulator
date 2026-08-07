@@ -36,25 +36,11 @@
         }
     }
 
-    // Список РОМов по ключам
-    const GAMES_MAP = {
-        'tanks': 'Battle City (J) [T+Rus1.2 PSCD (07.04.2017)].nes',
-        'contra': 'Contra (U) [T-Rus uBAH009 (12.11.2016)].nes',
-        'chip_dale': "Chip 'n Dale - Rescue Rangers 2 (U) [T+Rus She...nes"
-    };
-
     // Читаем параметры из URL
     const urlParams = new URLSearchParams(window.location.search);
-    const gameKey = urlParams.get('game');
-    let romUrl = urlParams.get('rom');
-
-    // Определяем файл РОМа
-    if (gameKey && GAMES_MAP[gameKey]) {
-        romUrl = GAMES_MAP[gameKey];
-    } else if (!romUrl) {
-        romUrl = GAMES_MAP['tanks'];
-    }
-
+    
+    // Если ROM передан в параметре — берем его, иначе по умолчанию Танчики
+    let romUrl = urlParams.get('rom') || 'Battle City (J) [T+Rus1.2 PSCD (07.04.2017)].nes';
     const netplayRoom = urlParams.get('room');
 
     // Настройки EmulatorJS
