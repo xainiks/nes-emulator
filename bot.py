@@ -9,12 +9,11 @@ from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 
-# --- НАСТРОЙКИ ---
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = "https://xainiks.github.io/nes-emulator/index.html"
 
-# Фейковый веб-сервер для обмана Render (чтобы Web Service не падал по Port Timeout)
+# Фейковый веб-сервер для Render
 async def handle_ping(request):
     return web.Response(text="Bot is running!")
 
@@ -27,16 +26,19 @@ async def start_dummy_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-# Встроенный золотой пак Co-Op игр
+# Список Co-Op игр (названия файлов строго как в репозитории)
 COOP_GAMES = {
     "tanks": {
-        "title": "🛡 Танчики (Battle City)"
-    },
-    "chip_dale": {
-        "title": "🐿 Чип и Дейл 2 (Chip 'n Dale 2)"
+        "title": "🛡 Танчики (Battle City)",
+        "file": "Battle City (J) [T+Rus1.2 PSCD (07.04.2017)].nes"
     },
     "contra": {
-        "title": "💥 Контра (Contra)"
+        "title": "💥 Контра (Contra)",
+        "file": "Contra (U) [T-Rus uBAH009 (12.11.2016)].nes"
+    },
+    "chip_dale": {
+        "title": "🐿 Чип и Дейл 2",
+        "file": "Chip 'n Dale - Rescue Rangers 2 (U) [T+Rus She...nes"
     }
 }
 
@@ -46,7 +48,7 @@ dp = Dispatcher()
 def generate_room_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
-# --- БАЗА ДАННЫХ ДЛЯ ЛИЧНЫХ РОМОВ ---
+# База данных для личной библиотеки
 def init_db():
     conn = sqlite3.connect("roms.db")
     cursor = conn.cursor()
@@ -63,27 +65,28 @@ def init_db():
 
 init_db()
 
-# --- ОБРАБОТЧИКИ ---
-
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
-    # Обработка входа второго игрока по инвайт-ссылке
+    # Вход второго игрока по инвайт-ссылке
     if args and args[0].startswith("join_"):
-        _, game_key, room_id = args[0].split("_", 2)
-        if game_key in COOP_GAMES:
-            game = COOP_GAMES[game_key]
-            play_url = f"{WEB_APP_URL}?game={game_key}&room={room_id}&host=false"
-            
-            kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🎮 Войти в игру (Игрок 2)", web_app=WebAppInfo(url=play_url))
-            ]])
-            await message.answer(
-                f"⚔️ **Вас пригласили в Co-Op дуэль!**\nИгра: **{game['title']}**\nЖми кнопку ниже, чтобы присоединиться к комнате!",
-                reply_markup=kb
-            )
-            return
+        parts = args[0].split("_")
+        if len(parts) >= 3:
+            game_key = parts[1]
+            room_id = parts[2]
+            if game_key in COOP_GAMES:
+                game = COOP_GAMES[game_key]
+                play_url = f"{WEB_APP_URL}?rom={game['file']}&room={room_id}"
+                
+                kb = InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="🎮 Войти в игру (Игрок 2)", web_app=WebAppInfo(url=play_url))
+                ]])
+                await message.answer(
+                    f"⚔️ **Вас пригласили в Co-Op!**\nИгра: **{game['title']}**\nНажми кнопку ниже, чтобы войти в комнату!",
+                    reply_markup=kb
+                )
+                return
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎮 Играть с другом (Co-Op)", callback_data="coop_menu")],
@@ -92,7 +95,6 @@ async def cmd_start(message: types.Message):
     
     await message.answer(
         "👋 **Привет! Это сетевой NES-эмулятор.**\n\n"
-        "Здесь можно играть в культовые игры Dendy **вдвоем с другом в реальном времени** прямо в Telegram!\n\n"
         "Выбери режим:",
         reply_markup=keyboard
     )
@@ -106,7 +108,7 @@ async def coop_menu(callback: types.CallbackQuery):
         ])
     kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_main")])
     
-    await callback.message.edit_text("🕹 **Выбери игру для совместного прохождения:**", reply_markup=kb)
+    await callback.message.edit_text("🕹 **Выбери игру для совместной игры:**", reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("create_room_"))
 async def create_room(callback: types.CallbackQuery):
@@ -121,7 +123,7 @@ async def create_room(callback: types.CallbackQuery):
     bot_info = await bot.get_me()
     
     invite_link = f"https://t.me/{bot_info.username}?start=join_{game_key}_{room_id}"
-    host_play_url = f"{WEB_APP_URL}?game={game_key}&room={room_id}&host=true"
+    host_play_url = f"{WEB_APP_URL}?rom={game['file']}&room={room_id}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="▶️ Запустить как Игрок 1 (Host)", web_app=WebAppInfo(url=host_play_url))],
@@ -134,7 +136,7 @@ async def create_room(callback: types.CallbackQuery):
         f"Игра: **{game['title']}**\n"
         f"ID Сессии: `{room_id}`\n\n"
         f"1. Нажми **«Запустить как Игрок 1»**\n"
-        f"2. Перешли ссылку другу, чтобы он зашел в игру как **Игрок 2**:\n`{invite_link}`",
+        f"2. Перешли ссылку другу:\n`{invite_link}`",
         reply_markup=kb,
         parse_mode="Markdown"
     )
@@ -154,7 +156,7 @@ async def handle_custom_rom(message: types.Message):
     conn.commit()
     conn.close()
     
-    await message.answer(f"✅ Файл **{message.document.file_name}** добавлен в твою библиотеку!")
+    await message.answer(f"✅ Файл **{message.document.file_name}** добавлен в библиотеку!")
 
 @dp.callback_query(F.data == "my_library")
 async def show_my_library(callback: types.CallbackQuery):
@@ -171,10 +173,10 @@ async def show_my_library(callback: types.CallbackQuery):
     if not roms:
         text = (
             "📁 **Твоя библиотека пока пуста.**\n\n"
-            "Чтобы добавить свою игру, просто **отправь `.nes` файл** боту сообщением!"
+            "Чтобы добавить свою игру, просто **отправь `.nes` файл** боту в этот чат!"
         )
     else:
-        text = "📁 **Твои загруженные РОМы:**\nВыбери игру для одиночного запуска:"
+        text = "📁 **Твои загруженные РОМы:**\nВыбери игру для запуска:"
         for rom_id, file_name in roms:
             kb.inline_keyboard.append([
                 InlineKeyboardButton(
@@ -196,7 +198,7 @@ async def back_to_main(callback: types.CallbackQuery):
 
 async def main():
     await start_dummy_server()
-    print("Бот с Netplay запущен...")
+    print("Бот запущен...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
