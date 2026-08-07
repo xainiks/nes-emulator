@@ -6,15 +6,29 @@ import string
 import urllib.parse
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiohttp import web
 
 # --- НАСТРОЙКИ ---
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = "https://xainiks.github.io/nes-emulator/index.html"
 
-# Встроенный золотой пак Co-Op игр (прямые ссылки на РОМы в твоем репозитории)
+# Фейковый веб-сервер для обмана Render (чтобы Web Service не падал по Port Timeout)
+async def handle_ping(request):
+    return web.Response(text="Bot is running!")
+
+async def start_dummy_server():
+    app = web.Application()
+    app.router.add_get("/", handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.getenv("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
+# Встроенный золотой пак Co-Op игр
 COOP_GAMES = {
     "tanks": {
         "title": "🛡 Танчики (Battle City)",
@@ -57,11 +71,9 @@ init_db()
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    # Проверяем, если зашли по инвайту на мультиплеер
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
     if args and args[0].startswith("join_"):
-        # Формат аргумента: join_GAMEKEY_ROOMID
         _, game_key, room_id = args[0].split("_", 2)
         if game_key in COOP_GAMES:
             game = COOP_GAMES[game_key]
@@ -89,7 +101,6 @@ async def cmd_start(message: types.Message):
         reply_markup=keyboard
     )
 
-# Меню Co-Op игр
 @dp.callback_query(F.data == "coop_menu")
 async def coop_menu(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[])
@@ -101,7 +112,6 @@ async def coop_menu(callback: types.CallbackQuery):
     
     await callback.message.edit_text("🕹 **Выбери игру для совместного прохождения:**", reply_markup=kb)
 
-# Создание комнаты для Netplay
 @dp.callback_query(F.data.startswith("create_room_"))
 async def create_room(callback: types.CallbackQuery):
     game_key = callback.data.replace("create_room_", "")
@@ -114,10 +124,7 @@ async def create_room(callback: types.CallbackQuery):
     room_id = generate_room_id()
     bot_info = await bot.get_me()
     
-    # Ссылка для Второго игрока через бота
     invite_link = f"https://t.me/{bot_info.username}?start=join_{game_key}_{room_id}"
-    
-    # Ссылка Web App для Первого игрока (Хост)
     rom_encoded = urllib.parse.quote(game["url"], safe='')
     host_play_url = f"{WEB_APP_URL}?rom={rom_encoded}&room={room_id}&host=true"
 
@@ -136,7 +143,6 @@ async def create_room(callback: types.CallbackQuery):
         parse_mode="Markdown"
     )
 
-# Обработка личных файлов
 @dp.message(F.document)
 async def handle_custom_rom(message: types.Message):
     if not message.document.file_name.endswith('.nes'):
@@ -154,7 +160,6 @@ async def handle_custom_rom(message: types.Message):
     
     await message.answer(f"✅ Файл **{message.document.file_name}** добавлен в твою библиотеку!")
 
-# Возврат в главное меню
 @dp.callback_query(F.data == "back_main")
 async def back_to_main(callback: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -164,6 +169,8 @@ async def back_to_main(callback: types.CallbackQuery):
     await callback.message.edit_text("Главное меню:", reply_markup=keyboard)
 
 async def main():
+    # Запускаем фейковый веб-сервер для Render
+    await start_dummy_server()
     print("Бот с Netplay запущен...")
     await dp.start_polling(bot)
 
