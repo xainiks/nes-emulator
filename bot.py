@@ -57,7 +57,7 @@ async def delete_safe(message: types.Message):
 def generate_room_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
-# Функция безопасной очистки имени файла для GitHub
+# Функция безопасной очистки имени файла для GitHub и кнопок
 def clean_filename(filename: str) -> str:
     filename = re.sub(r'[^a-zA-Z0-9_\.-]', '_', filename)
     return filename.lower()
@@ -71,11 +71,9 @@ def upload_to_github(file_content: bytes, filename: str) -> bool:
         g = Github(GITHUB_TOKEN)
         repo = g.get_user(GITHUB_USER).get_repo(GITHUB_REPO)
         try:
-            # Проверяем, существует ли уже файл
             existing_file = repo.get_contents(filename)
             repo.update_file(existing_file.path, f"Update {filename} via bot", file_content, existing_file.sha)
         except Exception:
-            # Если файла нет — создаем новый
             repo.create_file(filename, f"Upload {filename} via bot", file_content)
         return True
     except Exception as e:
@@ -88,7 +86,6 @@ async def cmd_start(message: types.Message):
 
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
-    # Вход второго игрока по инвайт-ссылке
     if args and args[0].startswith("join_"):
         parts = args[0].split("_")
         if len(parts) >= 3:
@@ -159,7 +156,6 @@ async def create_room(callback: types.CallbackQuery):
 
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
-# Загрузка собственного РОМа с автоматической отгрузкой на GitHub
 @dp.message(F.document)
 async def handle_custom_rom(message: types.Message):
     if not message.document.file_name.endswith('.nes'):
@@ -173,11 +169,9 @@ async def handle_custom_rom(message: types.Message):
     original_name = message.document.file_name
     clean_name = clean_filename(original_name)
 
-    # Скачиваем файл из Telegram в память
     file_info = await bot.get_file(message.document.file_id)
     file_bytes = await bot.download_file(file_info.file_path)
 
-    # Выполняем загрузку на GitHub в отдельном потоке
     loop = asyncio.get_running_loop()
     success = await loop.run_in_executor(None, upload_to_github, file_bytes.read(), clean_name)
 
@@ -209,10 +203,11 @@ async def show_my_library(callback: types.CallbackQuery):
         else:
             text = "💾 <b>Твоя личная коллекция РОМов на GitHub:</b>\nВыбери игру:"
             for rom in roms:
+                safe_data = clean_filename(rom.name)
                 kb.inline_keyboard.append([
                     InlineKeyboardButton(
-                        text=f"🕹 {rom.name}", 
-                        callback_data=f"rom_opts_{rom.name}"
+                        text=f"🕹 {rom.name[:25]}...", 
+                        callback_data=f"rom_opts_{safe_data}"
                     )
                 ])
         
