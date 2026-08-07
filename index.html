@@ -48,12 +48,21 @@
     EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
     EJS_startOnLoaded = true;
 
-    // Закрытие Mini App при выходе из эмулятора
+    // Прямой вызов закрытия WebApp при выходе из эмулятора
     EJS_onExit = function() {
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.close();
         }
     };
+
+    // Перехват клика по кнопке "Выход" в самом UI эмулятора для гарантированного закрытия
+    document.addEventListener('click', function(e) {
+        if (e.target && (e.target.classList.contains('ejs_exit') || e.target.closest('.ejs_exit'))) {
+            if (window.Telegram && window.Telegram.WebApp) {
+                window.Telegram.WebApp.close();
+            }
+        }
+    }, true);
 
     // Настройки Netplay (мультиплеера)
     if (netplayRoom) {
@@ -61,7 +70,7 @@
         EJS_room = netplayRoom;
     }
 
-    // Обработка сворачивания/разворачивания приложения на смартфоне
+    // Пауза/возобновление при сворачивании приложения
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
             if (window.EJS_emulator && window.EJS_emulator.pause) {
