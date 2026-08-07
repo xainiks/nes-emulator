@@ -13,7 +13,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = "https://xainiks.github.io/nes-emulator/index.html"
 
-# Фейковый веб-сервер для Render
+# Фейковый сервер для Render
 async def handle_ping(request):
     return web.Response(text="Bot is running!")
 
@@ -26,7 +26,7 @@ async def start_dummy_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-# Список Co-Op игр (названия файлов строго как в репозитории)
+# Список Co-Op игр
 COOP_GAMES = {
     "tanks": {
         "title": "🛡 Танчики (Battle City)",
@@ -48,7 +48,7 @@ dp = Dispatcher()
 def generate_room_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
-# База данных для личной библиотеки
+# База данных
 def init_db():
     conn = sqlite3.connect("roms.db")
     cursor = conn.cursor()
@@ -80,24 +80,30 @@ async def cmd_start(message: types.Message):
                 play_url = f"{WEB_APP_URL}?rom={game['file']}&room={room_id}"
                 
                 kb = InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text="🎮 Войти в игру (Игрок 2)", web_app=WebAppInfo(url=play_url))
+                    InlineKeyboardButton(text="⚔️ Войти в игру (Игрок 2)", web_app=WebAppInfo(url=play_url))
                 ]])
-                await message.answer(
-                    f"⚔️ **Вас пригласили в Co-Op!**\nИгра: **{game['title']}**\nНажми кнопку ниже, чтобы войти в комнату!",
-                    reply_markup=kb
+                
+                text = (
+                    f"⚔️ <b>Готов к сетевому дуэту?</b>\n\n"
+                    f"Тебя пригласили в игру: <b>{game['title']}</b>\n"
+                    f"Жми кнопку ниже, чтобы войти в сессию!"
                 )
+                await message.answer(text, reply_markup=kb, parse_mode="HTML")
                 return
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Играть с другом (Co-Op)", callback_data="coop_menu")],
-        [InlineKeyboardButton(text="📁 Моя библиотека РОМов", callback_data="my_library")]
+        [InlineKeyboardButton(text="🎮 Сыграть с другом (Co-Op)", callback_data="coop_menu")],
+        [InlineKeyboardButton(text="📁 Моя картриджная полка", callback_data="my_library")]
     ])
     
-    await message.answer(
-        "👋 **Привет! Это сетевой NES-эмулятор.**\n\n"
-        "Выбери режим:",
-        reply_markup=keyboard
+    welcome_text = (
+        "👾 <b>Retro Co-Op Club</b>\n\n"
+        "Добро пожаловать в ретро-клуб! Здесь можно зарубиться в легенды 8-бит "
+        "прямо в Telegram — в одиночку или <b>вдвоем с другом в реальном времени</b>.\n\n"
+        "Выбери режим в меню ниже:"
     )
+    
+    await message.answer(welcome_text, reply_markup=keyboard, parse_mode="HTML")
 
 @dp.callback_query(F.data == "coop_menu")
 async def coop_menu(callback: types.CallbackQuery):
@@ -106,9 +112,10 @@ async def coop_menu(callback: types.CallbackQuery):
         kb.inline_keyboard.append([
             InlineKeyboardButton(text=data["title"], callback_data=f"create_room_{key}")
         ])
-    kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_main")])
+    kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_main")])
     
-    await callback.message.edit_text("🕹 **Выбери игру для совместной игры:**", reply_markup=kb)
+    text = "🕹 <b>Зал кооперативных игр:</b>\nВыбери игру, чтобы создать комнату для двоих:"
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 @dp.callback_query(F.data.startswith("create_room_"))
 async def create_room(callback: types.CallbackQuery):
@@ -126,25 +133,27 @@ async def create_room(callback: types.CallbackQuery):
     host_play_url = f"{WEB_APP_URL}?rom={game['file']}&room={room_id}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="▶️ Запустить как Игрок 1 (Host)", web_app=WebAppInfo(url=host_play_url))],
-        [InlineKeyboardButton(text="✉️ Пригласить друга", switch_inline_query=f"Сыграем в {game['title']} вдвоем! Заходи: {invite_link}")],
+        [InlineKeyboardButton(text="🚀 Запустить (Игрок 1 / Хост)", web_app=WebAppInfo(url=host_play_url))],
+        [InlineKeyboardButton(text="✉️ Позвать напарника", switch_inline_query=f"Го в {game['title']} вдвоем! Заходи: {invite_link}")],
         [InlineKeyboardButton(text="⬅️ Выбрать другую игру", callback_data="coop_menu")]
     ])
 
-    await callback.message.edit_text(
-        f"🎮 **Комната создана!**\n\n"
-        f"Игра: **{game['title']}**\n"
-        f"ID Сессии: `{room_id}`\n\n"
-        f"1. Нажми **«Запустить как Игрок 1»**\n"
-        f"2. Перешли ссылку другу:\n`{invite_link}`",
-        reply_markup=kb,
-        parse_mode="Markdown"
+    text = (
+        f"🎯 <b>Игровая сессия создана!</b>\n\n"
+        f"🎮 Игра: <b>{game['title']}</b>\n"
+        f"🔑 ID Сессии: <code>{room_id}</code>\n\n"
+        f"<b>Инструкция:</b>\n"
+        f"1. Нажми кнопку <b>«Запустить (Игрок 1)»</b>\n"
+        f"2. Отправь эту ссылку другу, чтобы он зашел как Игрок 2:\n"
+        f"<code>{invite_link}</code>"
     )
+
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 @dp.message(F.document)
 async def handle_custom_rom(message: types.Message):
     if not message.document.file_name.endswith('.nes'):
-        await message.answer("⚠️ Принимаются только файлы `.nes`")
+        await message.answer("⚠️ Принимаются только файлы с расширением <code>.nes</code>", parse_mode="HTML")
         return
     
     conn = sqlite3.connect("roms.db")
@@ -156,7 +165,7 @@ async def handle_custom_rom(message: types.Message):
     conn.commit()
     conn.close()
     
-    await message.answer(f"✅ Файл **{message.document.file_name}** добавлен в библиотеку!")
+    await message.answer(f"💾 Картридж <b>{message.document.file_name}</b> успешно добавлен на твою полку!", parse_mode="HTML")
 
 @dp.callback_query(F.data == "my_library")
 async def show_my_library(callback: types.CallbackQuery):
@@ -172,29 +181,31 @@ async def show_my_library(callback: types.CallbackQuery):
 
     if not roms:
         text = (
-            "📁 **Твоя библиотека пока пуста.**\n\n"
-            "Чтобы добавить свою игру, просто **отправь `.nes` файл** боту в этот чат!"
+            "📦 <b>Твоя полка картриджей пуста.</b>\n\n"
+            "Чтобы добавить игру, просто скинь сюда <code>.nes</code> файл прямо сообщением!"
         )
     else:
-        text = "📁 **Твои загруженные РОМы:**\nВыбери игру для запуска:"
+        text = "💾 <b>Твоя личная коллекция РОМов:</b>\nВыбери игру для одиночной игры:"
         for rom_id, file_name in roms:
             kb.inline_keyboard.append([
                 InlineKeyboardButton(
-                    text=f"🎮 {file_name}", 
+                    text=f"🕹 {file_name}", 
                     web_app=WebAppInfo(url=f"{WEB_APP_URL}?rom={file_name}")
                 )
             ])
 
-    kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_main")])
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_main")])
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 @dp.callback_query(F.data == "back_main")
 async def back_to_main(callback: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Играть с другом (Co-Op)", callback_data="coop_menu")],
-        [InlineKeyboardButton(text="📁 Моя библиотека РОМов", callback_data="my_library")]
+        [InlineKeyboardButton(text="🎮 Сыграть с другом (Co-Op)", callback_data="coop_menu")],
+        [InlineKeyboardButton(text="📁 Моя картриджная полка", callback_data="my_library")]
     ])
-    await callback.message.edit_text("👋 **Привет! Это сетевой NES-эмулятор.**\n\nВыбери режим:", reply_markup=keyboard)
+    
+    text = "👾 <b>Retro Co-Op Club</b>\n\nВыбери режим в меню ниже:"
+    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 async def main():
     await start_dummy_server()
