@@ -54,12 +54,17 @@ async def delete_safe(message: types.Message):
     except Exception:
         pass
 
+fn_cache = {}
+
 def generate_room_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
 def clean_filename(filename: str) -> str:
-    filename = re.sub(r'[^a-zA-Z0-9_\.-]', '_', filename)
-    return filename.lower()
+    # Заменяем плюсы и прочие спецсимволы на подчеркивание
+    filename = filename.replace('+', '_')
+    clean = re.sub(r'[^a-zA-Z0-9_\.-]', '_', filename).lower()
+    fn_cache[clean] = filename
+    return clean
 
 def upload_to_github(file_content: bytes, filename: str) -> bool:
     if not GITHUB_TOKEN:
