@@ -26,19 +26,19 @@ async def start_dummy_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-# Список Co-Op игр
+# Список Co-Op игр (указаны простые имена файлов)
 COOP_GAMES = {
     "tanks": {
         "title": "🛡 Танчики (Battle City)",
-        "file": "Battle City (J) [T+Rus1.2 PSCD (07.04.2017)].nes"
+        "file": "tanks.nes"
     },
     "contra": {
         "title": "💥 Контра (Contra)",
-        "file": "Contra (U) [T-Rus uBAH009 (12.11.2016)].nes"
+        "file": "contra.nes"
     },
     "chip_dale": {
         "title": "🐿 Чип и Дейл 2",
-        "file": "Chip 'n Dale - Rescue Rangers 2 (U) [T+Rus She...nes"
+        "file": "chip_dale.nes"
     }
 }
 
@@ -74,7 +74,7 @@ init_db()
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
-    # Удаляем сообщение команды /start от пользователя, чтобы не засорять чат
+    # Удаляем команду /start от пользователя
     await delete_safe(message)
 
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
@@ -160,7 +160,7 @@ async def create_room(callback: types.CallbackQuery):
 
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
-# Загрузка РОМов (пользовательский файл остается в чате, удаляется только уведомление бота)
+# Загрузка РОМов (файл пользователя остается в чате, удаляется только системное уведомление)
 @dp.message(F.document)
 async def handle_custom_rom(message: types.Message):
     if not message.document.file_name.endswith('.nes'):
@@ -183,7 +183,7 @@ async def handle_custom_rom(message: types.Message):
         parse_mode="HTML"
     )
     
-    # Стираем только статусное сообщение бота через 4 секунды
+    # Стираем статусное сообщение бота через 4 секунды
     await asyncio.sleep(4)
     await delete_safe(status_msg)
 
