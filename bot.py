@@ -156,6 +156,36 @@ async def handle_custom_rom(message: types.Message):
     
     await message.answer(f"✅ Файл **{message.document.file_name}** добавлен в твою библиотеку!")
 
+@dp.callback_query(F.data == "my_library")
+async def show_my_library(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    
+    conn = sqlite3.connect("roms.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, file_name FROM user_roms WHERE user_id = ?", (user_id,))
+    roms = cursor.fetchall()
+    conn.close()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[])
+
+    if not roms:
+        text = (
+            "📁 **Твоя библиотека пока пуста.**\n\n"
+            "Чтобы добавить свою игру, просто **отправь `.nes` файл** боту сообщением!"
+        )
+    else:
+        text = "📁 **Твои загруженные РОМы:**\nВыбери игру для одиночного запуска:"
+        for rom_id, file_name in roms:
+            kb.inline_keyboard.append([
+                InlineKeyboardButton(
+                    text=f"🎮 {file_name}", 
+                    web_app=WebAppInfo(url=f"{WEB_APP_URL}?rom={file_name}")
+                )
+            ])
+
+    kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ Назад", callback_data="back_main")])
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+
 @dp.callback_query(F.data == "back_main")
 async def back_to_main(callback: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
