@@ -3,15 +3,21 @@ import asyncio
 import sqlite3
 import random
 import string
+import re
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
+from github import Github
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEB_APP_URL = "https://xainiks.github.io/nes-emulator/index.html"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_USER = os.getenv("GITHUB_USER", "xainiks")
+GITHUB_REPO = os.getenv("GITHUB_REPO", "nes-emulator")
+
+WEB_APP_URL = f"https://{GITHUB_USER}.github.io/{GITHUB_REPO}/index.html"
 
 async def handle_ping(request):
     return web.Response(text="Bot is running!")
@@ -52,6 +58,31 @@ async def delete_safe(message: types.Message):
 def generate_room_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
+# Функция безопасной очистки имени файла для GitHub
+def clean_filename(filename: str) -> str:
+    filename = re.sub(r'[^a-zA-Z0-9_\.-]', '_', filename)
+    return filename.lower()
+
+# Синхронная загрузка файла в GitHub
+def upload_to_github(file_content: bytes, filename: str) -> bool:
+    if not GITHUB_TOKEN:
+        print("GITHUB_TOKEN не установлен!")
+        return False
+    try:
+        g = Github(GITHUB_TOKEN)
+        repo = g.get_user(GITHUB_USER).get_repo(GITHUB_REPO)
+        try:
+            # Проверяем, существует ли уже файл
+            existing_file = repo.get_contents(filename)
+            repo.update_file(existing_file.path, f"Update {filename} via bot", file_content, existing_file.sha)
+        except Exception:
+            # Если файла нет — создаем новый
+            repo.create_file(filename, f"Upload {filename} via bot", file_content)
+        return True
+    except Exception as e:
+        print(f"Ошибка загрузки на GitHub: {e}")
+        return False
+
 def init_db():
     conn = sqlite3.connect("roms.db")
     cursor = conn.cursor()
@@ -60,7 +91,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             file_name TEXT,
-            file_id TEXT
+            clean_name TEXT
         )
     """)
     conn.commit()
@@ -88,8 +119,8 @@ async def cmd_start(message: types.Message):
             
             text = (
                 f"⚔️ <b>Тебя пригласили в сетевую игру!</b>\n\n"
-                f"Файл: <code>{game_file}</code>\n"
-                f"Нажми кнопку ниже, чтобы присоединиться к комнате!"
+                f"Игра: <code>{game_file}</code>\n"
+                f"Жми кнопку ниже, чтобы войти в комнату!"
             )
             await message.answer(text, reply_markup=kb, parse_mode="HTML")
             return
@@ -101,7 +132,7 @@ async def cmd_start(message: types.Message):
     
     welcome_text = (
         "👾 <b>Retro Co-Op Club</b>\n\n"
-        "Добро пожаловать в ретро-клуб! Выбери режим в меню ниже:"
+        "Выбери режим или скинь `.nes` файл в чат, чтобы добавить свою игру!"
     )
     
     await message.answer(welcome_text, reply_markup=keyboard, parse_mode="HTML")
@@ -118,7 +149,6 @@ async def coop_menu(callback: types.CallbackQuery):
     text = "🕹 <b>Зал кооперативных игр:</b>\nВыбери игру, чтобы создать комнату для двоих:"
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
-# Создание комнаты для любой игры (встроенной или кастомной)
 @dp.callback_query(F.data.startswith("create_room_"))
 async def create_room(callback: types.CallbackQuery):
     game_file = callback.data.replace("create_room_", "")
@@ -136,16 +166,17 @@ async def create_room(callback: types.CallbackQuery):
 
     text = (
         f"🎯 <b>Сетевая комната создана!</b>\n\n"
-        f"🎮 Файл игры: <code>{game_file}</code>\n"
+        f"🎮 Игра: <code>{game_file}</code>\n"
         f"🔑 ID Комнаты: <code>{room_id}</code>\n\n"
         f"<b>Инструкция:</b>\n"
         f"1. Нажми <b>«Запустить (Игрок 1)»</b>\n"
-        f"2. Отправь эту ссылку другу, чтобы он зашел как Игрок 2:\n"
+        f"2. Перешли ссылку другу:\n"
         f"<code>{invite_link}</code>"
     )
 
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
+# Загрузка собственного РОМа с автоматической отгрузкой на GitHub
 @dp.message(F.document)
 async def handle_custom_rom(message: types.Message):
     if not message.document.file_name.endswith('.nes'):
@@ -153,21 +184,38 @@ async def handle_custom_rom(message: types.Message):
         await asyncio.sleep(4)
         await delete_safe(err_msg)
         return
-    
-    conn = sqlite3.connect("roms.db")
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO user_roms (user_id, file_name, file_id) VALUES (?, ?, ?)",
-        (message.from_user.id, message.document.file_name, message.document.file_id)
-    )
-    conn.commit()
-    conn.close()
-    
-    status_msg = await message.answer(
-        f"💾 Картридж <b>{message.document.file_name}</b> добавился на твою полку!", 
-        parse_mode="HTML"
-    )
-    await asyncio.sleep(4)
+
+    status_msg = await message.answer("⏳ <i>Загружаю РОМ в облако GitHub, подожди пару секунд...</i>", parse_mode="HTML")
+
+    original_name = message.document.file_name
+    clean_name = clean_filename(original_name)
+
+    # Скачиваем файл из Telegram в память
+    file_info = await bot.get_file(message.document.file_id)
+    file_bytes = await bot.download_file(file_info.file_path)
+
+    # Выполняем загрузку на GitHub в отдельном потоке
+    loop = asyncio.get_running_loop()
+    success = await loop.run_in_executor(None, upload_to_github, file_bytes.read(), clean_name)
+
+    if success:
+        conn = sqlite3.connect("roms.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO user_roms (user_id, file_name, clean_name) VALUES (?, ?, ?)",
+            (message.from_user.id, original_name, clean_name)
+        )
+        conn.commit()
+        conn.close()
+
+        await status_msg.edit_text(
+            f"✅ Картридж <b>{original_name}</b> сохранён и выгружен на GitHub!\n Теперь можно играть соло или с другом.",
+            parse_mode="HTML"
+        )
+    else:
+        await status_msg.edit_text("❌ Ошибка при загрузке файла на GitHub. Проверь GITHUB_TOKEN.", parse_mode="HTML")
+
+    await asyncio.sleep(5)
     await delete_safe(status_msg)
 
 @dp.callback_query(F.data == "my_library")
@@ -176,7 +224,7 @@ async def show_my_library(callback: types.CallbackQuery):
     
     conn = sqlite3.connect("roms.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT id, file_name FROM user_roms WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT clean_name, file_name FROM user_roms WHERE user_id = ?", (user_id,))
     roms = cursor.fetchall()
     conn.close()
 
@@ -189,31 +237,30 @@ async def show_my_library(callback: types.CallbackQuery):
         )
     else:
         text = "💾 <b>Твоя личная коллекция РОМов:</b>\nВыбери игру:"
-        for rom_id, file_name in roms:
+        for clean_name, file_name in roms:
             kb.inline_keyboard.append([
                 InlineKeyboardButton(
                     text=f"🕹 {file_name}", 
-                    callback_data=f"rom_options_{file_name}"
+                    callback_data=f"rom_opts_{clean_name}"
                 )
             ])
 
     kb.inline_keyboard.append([InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back_main")])
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
-# Выбор режима для пользовательского РОМа (Соло или Сеть)
-@dp.callback_query(F.data.startswith("rom_options_"))
+@dp.callback_query(F.data.startswith("rom_opts_"))
 async def rom_options(callback: types.CallbackQuery):
-    file_name = callback.data.replace("rom_options_", "")
-    solo_url = f"{WEB_APP_URL}?rom={file_name}"
+    clean_name = callback.data.replace("rom_opts_", "")
+    solo_url = f"{WEB_APP_URL}?rom={clean_name}"
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Играть соло", web_app=WebAppInfo(url=solo_url))],
-        [InlineKeyboardButton(text="👥 Создать комнату для двоих (Co-Op)", callback_data=f"create_room_{file_name}")],
+        [InlineKeyboardButton(text="👥 Создать комнату для двоих (Co-Op)", callback_data=f"create_room_{clean_name}")],
         [InlineKeyboardButton(text="⬅️ Назад в библиотеку", callback_data="my_library")]
     ])
     
     await callback.message.edit_text(
-        f"🎮 Игра: <b>{file_name}</b>\n\nКак ты хочешь сыграть?",
+        f"🎮 Игра: <code>{clean_name}</code>\n\nКак ты хочешь сыграть?",
         reply_markup=kb,
         parse_mode="HTML"
     )
