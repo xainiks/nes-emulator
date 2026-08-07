@@ -1,33 +1,32 @@
+import os
 import asyncio
 import sqlite3
 import random
 import string
 import urllib.parse
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart, Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 # --- НАСТРОЙКИ ---
-BOT_TOKEN = "8324296878:AAHFjaTPJa52grxbpfNHPq7K99C95PF0Uv8"
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = "https://xainiks.github.io/nes-emulator/"
 
-# Встроенный золотой пак Co-Op игр (прямые ссылки на РОМы)
+# Встроенный золотой пак Co-Op игр (прямые ссылки на РОМы в твоем репозитории)
 COOP_GAMES = {
     "tanks": {
         "title": "🛡 Танчики (Battle City)",
-        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/roms/BattleCity.nes" # Заменим на рабочие ссылки
+        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/Battle%20City%20(J)%20%5BT%2BRus1.2%20PSCD%20(07.04.2017)%5D.nes"
     },
     "chip_dale": {
         "title": "🐿 Чип и Дейл 2 (Chip 'n Dale 2)",
-        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/roms/ChipNDale2.nes"
+        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/Chip%20'n%20Dale%20-%20Rescue%20Rangers%202%20(U)%20%5BT%2BRus%20She...nes"
     },
     "contra": {
         "title": "💥 Контра (Contra)",
-        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/roms/Contra.nes"
-    },
-    "tmnt3": {
-        "title": "🐢 Черепашки-Ниндзя 3 (TMNT 3)",
-        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/roms/TMNT3.nes"
+        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/Contra%20(U)%20%5BT-Rus%20uBAH009%20(12.11.2016)%5D.nes"
     }
 }
 
@@ -170,4 +169,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-  
