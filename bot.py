@@ -45,6 +45,13 @@ COOP_GAMES = {
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Вспомогательная функция безопасного удаления сообщений
+async def delete_safe(message: types.Message):
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
 def generate_room_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
@@ -67,6 +74,9 @@ init_db()
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
+    # Удаляем сообщение команды /start от пользователя, чтобы не засорять чат
+    await delete_safe(message)
+
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
     # Вход второго игрока по инвайт-ссылке
@@ -150,10 +160,13 @@ async def create_room(callback: types.CallbackQuery):
 
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
+# Загрузка РОМов (пользовательский файл остается в чате, удаляется только уведомление бота)
 @dp.message(F.document)
 async def handle_custom_rom(message: types.Message):
     if not message.document.file_name.endswith('.nes'):
-        await message.answer("⚠️ Принимаются только файлы с расширением <code>.nes</code>", parse_mode="HTML")
+        err_msg = await message.answer("⚠️ Принимаются только файлы <code>.nes</code>", parse_mode="HTML")
+        await asyncio.sleep(4)
+        await delete_safe(err_msg)
         return
     
     conn = sqlite3.connect("roms.db")
@@ -165,7 +178,14 @@ async def handle_custom_rom(message: types.Message):
     conn.commit()
     conn.close()
     
-    await message.answer(f"💾 Картридж <b>{message.document.file_name}</b> успешно добавлен на твою полку!", parse_mode="HTML")
+    status_msg = await message.answer(
+        f"💾 Картридж <b>{message.document.file_name}</b> успешно добавлен в твою библиотеку!", 
+        parse_mode="HTML"
+    )
+    
+    # Стираем только статусное сообщение бота через 4 секунды
+    await asyncio.sleep(4)
+    await delete_safe(status_msg)
 
 @dp.callback_query(F.data == "my_library")
 async def show_my_library(callback: types.CallbackQuery):
@@ -185,7 +205,7 @@ async def show_my_library(callback: types.CallbackQuery):
             "Чтобы добавить игру, просто скинь сюда <code>.nes</code> файл прямо сообщением!"
         )
     else:
-        text = "💾 <b>Твоя личная коллекция РОМов:</b>\nВыбери игру для одиночной игры:"
+        text = "💾 <b>Твоя личная коллекция РОМов:</b>\nВыбери игру для запуска:"
         for rom_id, file_name in roms:
             kb.inline_keyboard.append([
                 InlineKeyboardButton(
