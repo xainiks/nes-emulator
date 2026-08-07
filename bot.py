@@ -8,7 +8,7 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
-from github import Github
+from github import Github, Auth
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -57,18 +57,17 @@ async def delete_safe(message: types.Message):
 def generate_room_id():
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
 
-# Функция безопасной очистки имени файла для GitHub и кнопок
 def clean_filename(filename: str) -> str:
     filename = re.sub(r'[^a-zA-Z0-9_\.-]', '_', filename)
     return filename.lower()
 
-# Синхронная загрузка файла в GitHub
 def upload_to_github(file_content: bytes, filename: str) -> bool:
     if not GITHUB_TOKEN:
         print("GITHUB_TOKEN не установлен!")
         return False
     try:
-        g = Github(GITHUB_TOKEN)
+        auth = Auth.Token(GITHUB_TOKEN)
+        g = Github(auth=auth)
         repo = g.get_user(GITHUB_USER).get_repo(GITHUB_REPO)
         try:
             existing_file = repo.get_contents(filename)
@@ -191,7 +190,8 @@ async def show_my_library(callback: types.CallbackQuery):
     await callback.answer("⏳ Загружаю список игр с GitHub...")
     
     try:
-        g = Github(GITHUB_TOKEN)
+        auth = Auth.Token(GITHUB_TOKEN)
+        g = Github(auth=auth)
         repo = g.get_user(GITHUB_USER).get_repo(GITHUB_REPO)
         contents = repo.get_contents("")
         roms = [c for c in contents if c.name.endswith('.nes')]
