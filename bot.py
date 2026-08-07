@@ -12,7 +12,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 # --- НАСТРОЙКИ ---
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEB_APP_URL = "https://xainiks.github.io/nes-emulator/"
+WEB_APP_URL = "https://xainiks.github.io/nes-emulator/index.html"
 
 # Встроенный золотой пак Co-Op игр (прямые ссылки на РОМы в твоем репозитории)
 COOP_GAMES = {
