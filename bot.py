@@ -3,7 +3,6 @@ import asyncio
 import sqlite3
 import random
 import string
-import urllib.parse
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart
@@ -31,16 +30,13 @@ async def start_dummy_server():
 # Встроенный золотой пак Co-Op игр
 COOP_GAMES = {
     "tanks": {
-        "title": "🛡 Танчики (Battle City)",
-        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/Battle%20City%20(J)%20%5BT%2BRus1.2%20PSCD%20(07.04.2017)%5D.nes"
+        "title": "🛡 Танчики (Battle City)"
     },
     "chip_dale": {
-        "title": "🐿 Чип и Дейл 2 (Chip 'n Dale 2)",
-        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/Chip%20'n%20Dale%20-%20Rescue%20Rangers%202%20(U)%20%5BT%2BRus%20She...nes"
+        "title": "🐿 Чип и Дейл 2 (Chip 'n Dale 2)"
     },
     "contra": {
-        "title": "💥 Контра (Contra)",
-        "url": "https://raw.githubusercontent.com/xainiks/nes-emulator/main/Contra%20(U)%20%5BT-Rus%20uBAH009%20(12.11.2016)%5D.nes"
+        "title": "💥 Контра (Contra)"
     }
 }
 
@@ -73,12 +69,12 @@ init_db()
 async def cmd_start(message: types.Message):
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
+    # Обработка входа второго игрока по инвайт-ссылке
     if args and args[0].startswith("join_"):
         _, game_key, room_id = args[0].split("_", 2)
         if game_key in COOP_GAMES:
             game = COOP_GAMES[game_key]
-            rom_encoded = urllib.parse.quote(game["url"], safe='')
-            play_url = f"{WEB_APP_URL}?rom={rom_encoded}&room={room_id}&host=false"
+            play_url = f"{WEB_APP_URL}?game={game_key}&room={room_id}&host=false"
             
             kb = InlineKeyboardMarkup(inline_keyboard=[[
                 InlineKeyboardButton(text="🎮 Войти в игру (Игрок 2)", web_app=WebAppInfo(url=play_url))
@@ -125,12 +121,12 @@ async def create_room(callback: types.CallbackQuery):
     bot_info = await bot.get_me()
     
     invite_link = f"https://t.me/{bot_info.username}?start=join_{game_key}_{room_id}"
-    rom_encoded = urllib.parse.quote(game["url"], safe='')
-    host_play_url = f"{WEB_APP_URL}?rom={rom_encoded}&room={room_id}&host=true"
+    host_play_url = f"{WEB_APP_URL}?game={game_key}&room={room_id}&host=true"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="▶️ Запустить как Игрок 1 (Host)", web_app=WebAppInfo(url=host_play_url))],
-        [InlineKeyboardButton(text="✉️ Пригласить друга", switch_inline_query=f"Сыграем в {game['title']} вдвоем! Заходи: {invite_link}")]
+        [InlineKeyboardButton(text="✉️ Пригласить друга", switch_inline_query=f"Сыграем в {game['title']} вдвоем! Заходи: {invite_link}")],
+        [InlineKeyboardButton(text="⬅️ Выбрать другую игру", callback_data="coop_menu")]
     ])
 
     await callback.message.edit_text(
@@ -166,10 +162,9 @@ async def back_to_main(callback: types.CallbackQuery):
         [InlineKeyboardButton(text="🎮 Играть с другом (Co-Op)", callback_data="coop_menu")],
         [InlineKeyboardButton(text="📁 Моя библиотека РОМов", callback_data="my_library")]
     ])
-    await callback.message.edit_text("Главное меню:", reply_markup=keyboard)
+    await callback.message.edit_text("👋 **Привет! Это сетевой NES-эмулятор.**\n\nВыбери режим:", reply_markup=keyboard)
 
 async def main():
-    # Запускаем фейковый веб-сервер для Render
     await start_dummy_server()
     print("Бот с Netplay запущен...")
     await dp.start_polling(bot)
