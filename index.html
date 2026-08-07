@@ -38,20 +38,21 @@
 
     // Читаем параметры из URL
     const urlParams = new URLSearchParams(window.location.search);
-    const romUrl = urlParams.get('rom');
+    
+    // Если ROM не передан — запускаем Battle City по умолчанию
+    let romUrl = urlParams.get('rom') || 'Battle City (J) [T+Rus1.2 PSCD (07.04.2017)].nes';
     const netplayRoom = urlParams.get('room');
-    const isHost = urlParams.get('host') === 'true';
 
     // Настройки EmulatorJS
     EJS_player = '#game';
     EJS_core = 'nes';
-    EJS_gameUrl = romUrl;
+    EJS_gameUrl = encodeURI(romUrl); // кодируем пробелы и спецсимволы
     EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
     EJS_startOnLoaded = true;
 
     // Настройки Netplay (мультиплеера)
     if (netplayRoom) {
-        EJS_netplayUrl = 'https://netplay.emulatorjs.org';
+        EJS_netplayUrl = 'wss://netplay.emulatorjs.org';
         EJS_room = netplayRoom;
     }
 </script>
