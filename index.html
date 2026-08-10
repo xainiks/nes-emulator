@@ -6,10 +6,7 @@
     <title>Retro Co-Op Club</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-        }
-        body, html {
+        html, body {
             margin: 0;
             padding: 0;
             width: 100%;
@@ -17,25 +14,11 @@
             background-color: #000;
             color: #fff;
             overflow: hidden;
-            font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
         }
 
         #display {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* Центрируем iframe эмулятора внутри display */
-        #display iframe {
-            width: 100% !important;
-            height: 100% !important;
-            border: none;
+            width: 100%;
+            height: 100%;
         }
 
         #rotate_overlay {
@@ -51,6 +34,7 @@
             justify-content: center;
             align-items: center;
             text-align: center;
+            font-family: sans-serif;
         }
 
         #rotate_overlay svg {
@@ -71,7 +55,6 @@
         <p>Для игры нужен альбомный режим</p>
     </div>
 
-    <!-- Контейнер эмулятора -->
     <div id="display"></div>
 
     <script>
