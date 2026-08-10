@@ -2,88 +2,125 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Retro Co-Op Emulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
+    <title>Retro Co-Op Club</title>
+    <!-- Подключаем скрипт Telegram WebApp -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: #000; 
-            overflow: hidden; 
+        /* Обнуляем отступы и заставляем body занимать весь экран */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Запрещаем скролл */
+            background-color: #000; /* Черный фон */
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        #emulator-container { 
-            width: 100vw; 
-            height: 100vh; 
+
+        /* Принудительный альбомный режим (даже в портретном) */
+        @media screen and (orientation: portrait) {
+            body {
+                transform: rotate(-90deg);
+                transform-origin: left top;
+                width: 100vh;
+                height: 100vw;
+                position: absolute;
+                top: 100%;
+                left: 0;
+            }
         }
+
+        /* Контейнер для эмулятора - на весь экран */
+        #emulator_container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Кнопка "Меню" в углу (например, левом верхнем) */
+        #menu_button {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 9999; /* Поверх всего */
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        
+        #menu_button:hover {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
     </style>
 </head>
 <body>
 
-<div id="emulator-container">
-    <div id="game"></div>
-</div>
+    <!-- Кнопка "Выход в меню" -->
+    <button id="menu_button">🏠</button>
 
-<script type="text/javascript">
-    // Инициализация Telegram Web App
-    if (window.Telegram && window.Telegram.WebApp) {
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-        if (window.Telegram.WebApp.requestFullscreen) {
-            window.Telegram.WebApp.requestFullscreen();
+    <!-- Контейнер для эмулятора EmulatorJS -->
+    <div id="emulator_container">
+        <!-- Сюда скрипт эмулятора будет подставлять игру -->
+    </div>
+
+    <script>
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Расширяем WebApp на весь экран Telegram
+        tg.enableClosingConfirmation(); // Подтверждение при закрытии
+
+        // Функция закрытия WebApp (выход в меню бота)
+        document.getElementById('menu_button').onclick = function() {
+            tg.close();
+        };
+
+        // --- Конфигурация EmulatorJS ---
+        EJS_player = "#emulator_container"; // Куда вставлять
+        EJS_core = "nes"; // Платформа NES
+        
+        // Получаем параметры из URL (?rom=game.nes&room=123)
+        const urlParams = new URLSearchParams(window.location.search);
+        const romName = urlParams.get('rom');
+        const roomId = urlParams.get('room'); // Для коопа
+
+        if (romName) {
+            EJS_gameUrl = romName; // Путь к ROM-файлу на GitHub Pages
+            EJS_gameName = romName.replace('.nes', '').toUpperCase();
         }
-    }
 
-    // Читаем параметры из URL
-    const urlParams = new URLSearchParams(window.location.search);
-    let romUrl = urlParams.get('rom') || 'tanks.nes';
-    const netplayRoom = urlParams.get('room');
-
-    // Настройки EmulatorJS
-    EJS_player = '#game';
-    EJS_core = 'nes';
-    EJS_gameUrl = encodeURI(romUrl);
-    EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
-    EJS_startOnLoaded = true;
-
-    // Прямой вызов закрытия WebApp при выходе из эмулятора
-    EJS_onExit = function() {
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.close();
+        // Настройка мультиплеера, если есть roomID
+        if (roomId) {
+            EJS_netplayUrl = "wss://netplay.emulatorjs.org"; // Дефолтный сервер (PeerJS)
+            EJS_netplayRoomId = roomId;
         }
-    };
 
-    // Перехват клика по кнопке "Выход" в самом UI эмулятора для гарантированного закрытия
-    document.addEventListener('click', function(e) {
-        if (e.target && (e.target.classList.contains('ejs_exit') || e.target.closest('.ejs_exit'))) {
-            if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.close();
-            }
-        }
-    }, true);
+        // Дополнительные настройки (по желанию, можно скрыть UI самого эмулятора)
+        // EJS_color = "#333";
+        // EJS_logo = false;
+        // EJS_startOnKeyPress = true;
 
-    // Настройки Netplay (мультиплеера)
-    if (netplayRoom) {
-        EJS_netplayUrl = 'wss://netplay.emulatorjs.org';
-        EJS_room = netplayRoom;
-    }
+    </script>
 
-    // Пауза/возобновление при сворачивании приложения
-    document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            if (window.EJS_emulator && window.EJS_emulator.pause) {
-                window.EJS_emulator.pause();
-            }
-        } else {
-            if (window.EJS_emulator && window.EJS_emulator.resume) {
-                window.EJS_emulator.resume();
-            }
-        }
-    });
-</script>
-<script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+    <!-- Подключаем основной скрипт EmulatorJS -->
+    <script src="https://emulatorjs.org/cdn/nes.js"></script>
 
 </body>
 </html>
