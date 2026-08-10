@@ -43,27 +43,9 @@
             fill: #fff;
             margin-bottom: 15px;
         }
-
-        #menu_button {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 9999;
-            background-color: rgba(255, 255, 255, 0.25);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 14px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            backdrop-filter: blur(4px);
-        }
     </style>
 </head>
 <body>
-
-    <button id="menu_button">🏠 Меню</button>
 
     <div id="rotate_overlay">
         <svg viewBox="0 0 24 24">
@@ -73,7 +55,7 @@
         <p>Для игры нужен альбомный режим</p>
     </div>
 
-    <!-- Контейнер эмулятора (по умолчанию id="display" для loader.js) -->
+    <!-- Контейнер эмулятора -->
     <div id="display"></div>
 
     <script>
@@ -83,22 +65,17 @@
         tg.setHeaderColor('#000000');
         tg.setBackgroundColor('#000000');
 
-        document.getElementById('menu_button').onclick = function() {
-            tg.close();
-        };
-
-        // Извлекаем имя ROM и Room из параметров URL
+        // Извлекаем параметры из URL
         const urlParams = new URLSearchParams(window.location.search);
         const romName = urlParams.get('rom');
         const roomId = urlParams.get('room');
 
-        // Глобальная конфигурация EmulatorJS (обязана быть объявлена ДО загрузки loader.js)
+        // Конфигурация EmulatorJS
         var EJS_player = '#display';
         var EJS_core = 'nes';
         var EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
 
         if (romName) {
-            // Формируем полный URL к файлу РОМа на GitHub Pages
             EJS_gameUrl = window.location.origin + window.location.pathname.replace('index.html', '') + romName;
             EJS_gameUrl = EJS_gameUrl.replace('//', '/').replace(':/', '://');
             EJS_gameName = romName.replace('.nes', '').replace('_', ' ').toUpperCase();
@@ -109,7 +86,7 @@
             EJS_netplayRoomId = roomId;
         }
 
-        // Проверка ориентации
+        // Проверка ориентации экрана
         const rotateOverlay = document.getElementById('rotate_overlay');
         function checkOrientation() {
             const desktopPlatforms = ['desktop', 'macos', 'tdesktop', 'weba', 'web', 'unknown'];
@@ -131,7 +108,7 @@
         window.addEventListener('resize', checkOrientation);
     </script>
 
-    <!-- Подключаем основной загрузчик EmulatorJS ПОСЛЕ объявления EJS_ переменных -->
+    <!-- Загрузчик эмулятора -->
     <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 
 </body>
