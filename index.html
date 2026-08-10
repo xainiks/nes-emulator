@@ -6,6 +6,9 @@
     <title>Retro Co-Op Club</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body, html {
             margin: 0;
             padding: 0;
@@ -15,11 +18,24 @@
             color: #fff;
             overflow: hidden;
             font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         #display {
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Центрируем iframe эмулятора внутри display */
+        #display iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: none;
         }
 
         #rotate_overlay {
@@ -59,18 +75,15 @@
     <div id="display"></div>
 
     <script>
-        // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.setHeaderColor('#000000');
         tg.setBackgroundColor('#000000');
 
-        // Извлекаем параметры из URL
         const urlParams = new URLSearchParams(window.location.search);
         const romName = urlParams.get('rom');
         const roomId = urlParams.get('room');
 
-        // Конфигурация EmulatorJS
         var EJS_player = '#display';
         var EJS_core = 'nes';
         var EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
@@ -86,7 +99,6 @@
             EJS_netplayRoomId = roomId;
         }
 
-        // Проверка ориентации экрана
         const rotateOverlay = document.getElementById('rotate_overlay');
         function checkOrientation() {
             const desktopPlatforms = ['desktop', 'macos', 'tdesktop', 'weba', 'web', 'unknown'];
@@ -108,7 +120,6 @@
         window.addEventListener('resize', checkOrientation);
     </script>
 
-    <!-- Загрузчик эмулятора -->
     <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 
 </body>
