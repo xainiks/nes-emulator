@@ -67,12 +67,32 @@ async def cmd_start(message: types.Message):
     
     # Обработка входа по пригласительной ссылке
     if args and args[0].startswith("join_"):
-        parts = args[0].split("_")
-        if len(parts) >= 3:
-            game_file = parts[1]
-            room_id = parts[2]
-            display_name = clean_game_name(game_file)
-            play_url = f"{WEB_APP_URL}?rom={game_file}&room={room_id}"
+        payload = args[0][5:] # убираем "join_"
+        parts = payload.split("_")
+        
+        if len(parts) >= 2:
+            room_id = parts[-1]
+            # Восстанавливаем оригинальный .nes файл из списка доступных ромов
+            safe_game_part = "_".join(parts[:-1])
+            
+            # Получаем актуальный список ромов для точности
+            auth = Auth.Token(GITHUB_TOKEN)
+            g = Github(auth=auth)
+            repo = g.get_user(GITHUB_USER).get_repo(GITHUB_REPO)
+            all_roms = [c.name for c in repo.get_contents("") if c.name.endswith('.nes')]
+            
+            # Находим совпадение
+            target_rom = None
+            for rom in all_roms:
+                if rom.replace('.nes', '').replace('.', '_') == safe_game_part:
+                    target_rom = rom
+                    break
+            
+            if not target_rom:
+                target_rom = safe_game_part + ".nes"
+                
+            display_name = clean_game_name(target_rom)
+            play_url = f"{WEB_APP_URL}?rom={target_rom}&room={room_id}"
             
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="⚔️ Занять место 2-го Игрока", web_app=WebAppInfo(url=play_url))],
@@ -150,12 +170,15 @@ async def create_room(callback: types.CallbackQuery):
     room_id = generate_rom_id()
     bot_info = await bot.get_me()
     
-    invite_link = f"https://t.me/{bot_info.username}?start=join_{filename}_{room_id}"
+    # Безопасное имя файла без точек
+    safe_filename = filename.replace('.nes', '').replace('.', '_')
+    
+    invite_link = f"https://t.me/{bot_info.username}?start=join_{safe_filename}_{room_id}"
     host_url = f"{WEB_APP_URL}?rom={filename}&room={room_id}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚀 Запустить игровую сессию (Игрок 1)", web_app=WebAppInfo(url=host_url))],
-        [InlineKeyboardButton(text="✉️ Поделиться с другом", switch_inline_query=f"join_{filename}_{room_id}")],
+        [InlineKeyboardButton(text="✉️ Поделиться с другом", switch_inline_query=f"join_{safe_filename}_{room_id}")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"idx_{idx}")]
     ])
 
@@ -166,7 +189,7 @@ async def create_room(callback: types.CallbackQuery):
         f"<b>Порядок действий:</b>\n"
         f"1. Ты (Хост) нажимаешь <b>«Запустить игровую сессию»</b>.\n"
         f"2. Пересылаешь ссылку другу:\n<code>{invite_link}</code>\n\n"
-        f"<i>Друг перейдет по ссылке, нажмет /start и сразу получит кнопку для входа вторым игроком.</i>"
+        f"<i>Друг перейдет по ссылке, и у него откроется кнопка подключения!</i>"
     )
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
