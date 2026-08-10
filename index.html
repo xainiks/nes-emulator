@@ -2,39 +2,27 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Retro Co-Op Club</title>
     <!-- Подключаем скрипт Telegram WebApp -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Обнуляем отступы и заставляем body занимать весь экран */
+        /* Обнуляем отступы, черный фон */
         body, html {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden; /* Запрещаем скролл */
-            background-color: #000; /* Черный фон */
+            background-color: #000;
             color: #fff;
+            overflow: hidden; /* Запрещаем скролл */
+            font-family: sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        /* Принудительный альбомный режим (даже в портретном) */
-        @media screen and (orientation: portrait) {
-            body {
-                transform: rotate(-90deg);
-                transform-origin: left top;
-                width: 100vh;
-                height: 100vw;
-                position: absolute;
-                top: 100%;
-                left: 0;
-            }
-        }
-
-        /* Контейнер для эмулятора - на весь экран */
+        /* Контейнер для эмулятора */
         #emulator_container {
             width: 100%;
             height: 100%;
@@ -43,24 +31,43 @@
             align-items: center;
         }
 
-        /* Кнопка "Меню" в углу (например, левом верхнем) */
+        /* Заставка "Поверните телефон" (скрыта по умолчанию) */
+        #rotate_overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 10000; /* Поверх всего */
+            display: none; /* Скрыто */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        #rotate_overlay svg {
+            width: 100px;
+            height: 100px;
+            fill: #fff;
+            margin-bottom: 20px;
+        }
+
+        /* Кнопка "Выход в меню" - всегда в верхнем углу */
         #menu_button {
             position: fixed;
             top: 10px;
-            left: 10px;
-            z-index: 9999; /* Поверх всего */
+            right: 10px; /* Удобнее под палец */
+            z-index: 9999;
             background-color: rgba(255, 255, 255, 0.2);
             color: white;
             border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 20px;
+            border-radius: 5px;
+            padding: 8px 12px;
+            font-size: 16px;
             cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0.7;
+            opacity: 0.8;
             transition: opacity 0.3s;
         }
         
@@ -74,18 +81,34 @@
 <body>
 
     <!-- Кнопка "Выход в меню" -->
-    <button id="menu_button">🏠</button>
+    <button id="menu_button">🏠 Меню</button>
+
+    <!-- Заставка с просьбой повернуть экран -->
+    <div id="rotate_overlay">
+        <!-- Иконка поворота телефона (SVG) -->
+        <svg viewBox="0 0 24 24">
+            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12C20,13.63 19.5,15.14 18.69,16.4L17.29,15C17.74,14.11 18,13.09 18,12A6,6 0 0,0 12,6C10.91,6 9.89,6.26 9,6.71L7.6,5.31C8.86,4.5 10.37,4 12,4M7.6,18.69L9,17.29C9.89,17.74 10.91,18 12,18A6,6 0 0,0 18,12C18,10.91 17.74,9.89 17.29,9L18.69,7.6C19.5,8.86 20,10.37 20,12C20,16.42 16.42,20 12,20C10.37,20 8.86,19.5 7.6,18.69M6,12A6,6 0 0,0 12,18C13.09,18 14.11,17.74 15,17.29L16.4,18.69C15.14,19.5 13.63,20 12,20A8,8 0 0,1 4,12C4,10.37 4.5,8.86 5.31,7.6L6.71,9C6.26,9.89 6,10.91 6,12Z" />
+        </svg>
+        <h3>Пожалуйста, поверните телефон</h3>
+        <p>Для удобной игры нужен альбомный режим.</p>
+    </div>
 
     <!-- Контейнер для эмулятора EmulatorJS -->
-    <div id="emulator_container">
-        <!-- Сюда скрипт эмулятора будет подставлять игру -->
-    </div>
+    <div id="emulator_container"></div>
 
     <script>
         // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Расширяем WebApp на весь экран Telegram
-        tg.enableClosingConfirmation(); // Подтверждение при закрытии
+        
+        // 1. Сразу просим Telegram расширить окно на максимум
+        tg.expand(); 
+        
+        // 2. Включаем подтверждение закрытия (чтобы случайно не выйти из игры)
+        tg.enableClosingConfirmation(); 
+        
+        // 3. Устанавливаем цвет заголовка WebApp (в цвет фона)
+        tg.setHeaderColor('#000000');
+        tg.setBackgroundColor('#000000');
 
         // Функция закрытия WebApp (выход в меню бота)
         document.getElementById('menu_button').onclick = function() {
@@ -93,29 +116,40 @@
         };
 
         // --- Конфигурация EmulatorJS ---
-        EJS_player = "#emulator_container"; // Куда вставлять
-        EJS_core = "nes"; // Платформа NES
+        EJS_player = "#emulator_container";
+        EJS_core = "nes";
         
-        // Получаем параметры из URL (?rom=game.nes&room=123)
         const urlParams = new URLSearchParams(window.location.search);
         const romName = urlParams.get('rom');
         const roomId = urlParams.get('room'); // Для коопа
 
         if (romName) {
-            EJS_gameUrl = romName; // Путь к ROM-файлу на GitHub Pages
-            EJS_gameName = romName.replace('.nes', '').toUpperCase();
+            EJS_gameUrl = romName;
+            EJS_gameName = romName.replace('.nes', '').replace('_', ' ').toUpperCase();
         }
 
-        // Настройка мультиплеера, если есть roomID
         if (roomId) {
-            EJS_netplayUrl = "wss://netplay.emulatorjs.org"; // Дефолтный сервер (PeerJS)
+            EJS_netplayUrl = "wss://netplay.emulatorjs.org"; // Дефолтный сервер
             EJS_netplayRoomId = roomId;
         }
 
-        // Дополнительные настройки (по желанию, можно скрыть UI самого эмулятора)
-        // EJS_color = "#333";
-        // EJS_logo = false;
-        // EJS_startOnKeyPress = true;
+        // --- Обработка поворота экрана ---
+        const rotateOverlay = document.getElementById('rotate_overlay');
+
+        function checkOrientation() {
+            // Если WebApp открыт на телефоне (mobile) и режим портретный
+            if (tg.platform !== 'desktop' && tg.platform !== 'macos' && tg.platform !== 'web' && window.innerHeight > window.innerWidth) {
+                rotateOverlay.style.display = 'flex'; // Показываем заставку
+            } else {
+                rotateOverlay.style.display = 'none'; // Скрываем
+            }
+        }
+
+        // Проверяем при загрузке
+        checkOrientation();
+
+        // Проверяем при каждом изменении размера (повороте)
+        window.addEventListener('resize', checkOrientation);
 
     </script>
 
