@@ -31,7 +31,7 @@
             align-items: center;
         }
 
-        /* Заставка "Поверните телефон" (скрыта по умолчанию) */
+        /* Заставка "Поверните телефон" */
         #rotate_overlay {
             position: fixed;
             top: 0;
@@ -40,7 +40,7 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.9);
             z-index: 10000; /* Поверх всего */
-            display: none; /* Скрыто */
+            display: none; /* Скрыто по умолчанию */
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -54,11 +54,11 @@
             margin-bottom: 20px;
         }
 
-        /* Кнопка "Выход в меню" - всегда в верхнем углу */
+        /* Кнопка "Выход в меню" */
         #menu_button {
             position: fixed;
             top: 10px;
-            right: 10px; /* Удобнее под палец */
+            right: 10px;
             z-index: 9999;
             background-color: rgba(255, 255, 255, 0.2);
             color: white;
@@ -85,7 +85,6 @@
 
     <!-- Заставка с просьбой повернуть экран -->
     <div id="rotate_overlay">
-        <!-- Иконка поворота телефона (SVG) -->
         <svg viewBox="0 0 24 24">
             <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12C20,13.63 19.5,15.14 18.69,16.4L17.29,15C17.74,14.11 18,13.09 18,12A6,6 0 0,0 12,6C10.91,6 9.89,6.26 9,6.71L7.6,5.31C8.86,4.5 10.37,4 12,4M7.6,18.69L9,17.29C9.89,17.74 10.91,18 12,18A6,6 0 0,0 18,12C18,10.91 17.74,9.89 17.29,9L18.69,7.6C19.5,8.86 20,10.37 20,12C20,16.42 16.42,20 12,20C10.37,20 8.86,19.5 7.6,18.69M6,12A6,6 0 0,0 12,18C13.09,18 14.11,17.74 15,17.29L16.4,18.69C15.14,19.5 13.63,20 12,20A8,8 0 0,1 4,12C4,10.37 4.5,8.86 5.31,7.6L6.71,9C6.26,9.89 6,10.91 6,12Z" />
         </svg>
@@ -100,13 +99,8 @@
         // Инициализация Telegram WebApp
         const tg = window.Telegram.WebApp;
         
-        // 1. Сразу просим Telegram расширить окно на максимум
         tg.expand(); 
-        
-        // 2. Включаем подтверждение закрытия (чтобы случайно не выйти из игры)
         tg.enableClosingConfirmation(); 
-        
-        // 3. Устанавливаем цвет заголовка WebApp (в цвет фона)
         tg.setHeaderColor('#000000');
         tg.setBackgroundColor('#000000');
 
@@ -129,7 +123,7 @@
         }
 
         if (roomId) {
-            EJS_netplayUrl = "wss://netplay.emulatorjs.org"; // Дефолтный сервер
+            EJS_netplayUrl = "wss://netplay.emulatorjs.org"; 
             EJS_netplayRoomId = roomId;
         }
 
@@ -137,11 +131,21 @@
         const rotateOverlay = document.getElementById('rotate_overlay');
 
         function checkOrientation() {
-            // Если WebApp открыт на телефоне (mobile) и режим портретный
-            if (tg.platform !== 'desktop' && tg.platform !== 'macos' && tg.platform !== 'web' && window.innerHeight > window.innerWidth) {
-                rotateOverlay.style.display = 'flex'; // Показываем заставку
+            // Список платформ, которые мы считаем ПК / Ноутбуками
+            const desktopPlatforms = ['desktop', 'macos', 'tdesktop', 'weba', 'web', 'unknown'];
+            const isDesktop = desktopPlatforms.includes(tg.platform) || window.innerWidth > 800;
+
+            // Если это ПК — никогда не показываем заставку поворота
+            if (isDesktop) {
+                rotateOverlay.style.display = 'none';
+                return;
+            }
+
+            // Если это смартфон и экран зажат вертикально (портрет) — показываем заставку
+            if (window.innerHeight > window.innerWidth) {
+                rotateOverlay.style.display = 'flex';
             } else {
-                rotateOverlay.style.display = 'none'; // Скрываем
+                rotateOverlay.style.display = 'none';
             }
         }
 
