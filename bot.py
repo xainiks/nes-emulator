@@ -65,6 +65,7 @@ async def cmd_start(message: types.Message):
     await delete_safe(message)
     args = message.text.split()[1:] if len(message.text.split()) > 1 else []
     
+    # Обработка входа по пригласительной ссылке
     if args and args[0].startswith("join_"):
         parts = args[0].split("_")
         if len(parts) >= 3:
@@ -72,13 +73,16 @@ async def cmd_start(message: types.Message):
             room_id = parts[2]
             display_name = clean_game_name(game_file)
             play_url = f"{WEB_APP_URL}?rom={game_file}&room={room_id}"
-            kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="⚔️ Занять место 2-го Игрока", web_app=WebAppInfo(url=play_url))
-            ]])
+            
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⚔️ Занять место 2-го Игрока", web_app=WebAppInfo(url=play_url))],
+                [InlineKeyboardButton(text="⬅️ В главное меню", callback_data="back")]
+            ])
+            
             await message.answer(
-                f"🎮 <b>Дуэль / Совместная игра!</b>\n\n"
-                f"Тебя позвали сыграть в <b>{display_name}</b> 🕹\n"
-                f"Нажимай кнопку ниже, чтобы подключить второй джойстик:",
+                f"🎮 <b>Приглашение в игру!</b>\n\n"
+                f"Тебя позвали сыграть в <b>{display_name}</b> 🕹\n\n"
+                f"Жми кнопку ниже, чтобы подключиться ко 2-му джойстику:",
                 reply_markup=kb, parse_mode="HTML"
             )
             return
@@ -151,7 +155,7 @@ async def create_room(callback: types.CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚀 Запустить игровую сессию (Игрок 1)", web_app=WebAppInfo(url=host_url))],
-        [InlineKeyboardButton(text="✉️ Пригласить напарника", switch_inline_query=f"Го играть в {display_name}! Заходи: {invite_link}")],
+        [InlineKeyboardButton(text="✉️ Поделиться с другом", switch_inline_query=f"join_{filename}_{room_id}")],
         [InlineKeyboardButton(text="⬅️ Назад", callback_data=f"idx_{idx}")]
     ])
 
@@ -160,8 +164,9 @@ async def create_room(callback: types.CallbackQuery):
         f"🎮 Игра: <b>{display_name}</b>\n"
         f"🔑 Код сессии: <code>{room_id}</code>\n\n"
         f"<b>Порядок действий:</b>\n"
-        f"1. Нажми кнопку <b>«Запустить игровую сессию»</b> и дождись загрузки.\n"
-        f"2. Отправь ссылку другу:\n<code>{invite_link}</code>"
+        f"1. Ты (Хост) нажимаешь <b>«Запустить игровую сессию»</b>.\n"
+        f"2. Пересылаешь ссылку другу:\n<code>{invite_link}</code>\n\n"
+        f"<i>Друг перейдет по ссылке, нажмет /start и сразу получит кнопку для входа вторым игроком.</i>"
     )
     await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
